@@ -12,6 +12,10 @@ class ProjectIssues < Spinach::FeatureSteps
     page.should_not have_content "Release 0.3"
   end
 
+  And 'I should not see "Tweet control" in issues' do
+    page.should_not have_content "Tweet control"
+  end
+
   Given 'I click link "Closed"' do
     click_link "Closed"
   end
@@ -41,7 +45,7 @@ class ProjectIssues < Spinach::FeatureSteps
   end
 
   And 'I submit new issue "500 error on profile"' do
-    fill_in "issue_title", :with => "500 error on profile"
+    fill_in "issue_title", with: "500 error on profile"
     click_button "Submit new issue"
   end
 
@@ -56,16 +60,16 @@ class ProjectIssues < Spinach::FeatureSteps
     page.should have_content issue.project.name
   end
 
-  Given 'I fill in issue search with "Release"' do
-    fill_in 'issue_search', with: "Release"
+  Given 'I fill in issue search with "Re"' do
+    fill_in 'issue_search', with: "Re"
   end
 
-  Given 'I fill in issue search with "Bug"' do
-    fill_in 'issue_search', with: "Bug"
+  Given 'I fill in issue search with "Bu"' do
+    fill_in 'issue_search', with: "Bu"
   end
 
-  And 'I fill in issue search with "0.3"' do
-    fill_in 'issue_search', with: "0.3"
+  And 'I fill in issue search with ".3"' do
+    fill_in 'issue_search', with: ".3"
   end
 
   And 'I fill in issue search with "Something"' do
@@ -78,16 +82,16 @@ class ProjectIssues < Spinach::FeatureSteps
 
   Given 'project "Shop" has milestone "v2.2"' do
     project = Project.find_by_name("Shop")
-    milestone = create(:milestone, :title => "v2.2", :project => project)
+    milestone = create(:milestone, title: "v2.2", project: project)
 
-    3.times { create(:issue, :project => project, :milestone => milestone) }
+    3.times { create(:issue, project: project, milestone: milestone) }
   end
 
   And 'project "Shop" has milestone "v3.0"' do
     project = Project.find_by_name("Shop")
-    milestone = create(:milestone, :title => "v3.0", :project => project)
+    milestone = create(:milestone, title: "v3.0", project: project)
 
-    3.times { create(:issue, :project => project, :milestone => milestone) }
+    3.times { create(:issue, project: project, milestone: milestone) }
   end
 
   When 'I select milestone "v3.0"' do
@@ -115,16 +119,24 @@ class ProjectIssues < Spinach::FeatureSteps
   And 'project "Shop" have "Release 0.4" open issue' do
     project = Project.find_by_name("Shop")
     create(:issue,
-           :title => "Release 0.4",
-           :project => project,
-           :author => project.users.first)
+           title: "Release 0.4",
+           project: project,
+           author: project.users.first)
+  end
+
+  And 'project "Shop" have "Tweet control" open issue' do
+    project = Project.find_by_name("Shop")
+    create(:issue,
+           title: "Tweet control",
+           project: project,
+           author: project.users.first)
   end
 
   And 'project "Shop" have "Release 0.3" closed issue' do
     project = Project.find_by_name("Shop")
     create(:closed_issue,
-           :title => "Release 0.3",
-           :project => project,
-           :author => project.users.first)
+           title: "Release 0.3",
+           project: project,
+           author: project.users.first)
   end
 end

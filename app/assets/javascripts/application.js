@@ -14,6 +14,7 @@
 //= require jquery.waitforimages
 //= require jquery.atwho
 //= require jquery.scrollto
+//= require jquery.blockUI
 //= require turbolinks
 //= require jquery.turbolinks
 //= require bootstrap
@@ -26,3 +27,5 @@
 //= require branch-graph
 //= require ace-src-noconflict/ace
 //= require_tree .
+//= require d3
+//= require underscore

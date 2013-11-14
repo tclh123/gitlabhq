@@ -1,6 +1,7 @@
 class Groups < Spinach::FeatureSteps
   include SharedAuthentication
   include SharedPaths
+  include Select2Helper
 
   Then 'I should see projects list' do
     current_user.authorized_projects.each do |project|
@@ -9,8 +10,9 @@ class Groups < Spinach::FeatureSteps
   end
 
   And 'I have group with projects' do
-    @group   = create(:group, owner: current_user)
-    @project = create(:project, group: @group)
+    @group   = create(:group)
+    @group.add_owner(current_user)
+    @project = create(:project, namespace: @group)
     @event   = create(:closed_issue_event, project: @project)
 
     @project.team << [current_user, :master]
@@ -38,11 +40,11 @@ class Groups < Spinach::FeatureSteps
 
   And 'I select user "John" from list with role "Reporter"' do
     user = User.find_by_name("John")
-    within "#new_team_member" do
-      select user.name, :from => "user_ids"
-      select "Reporter", :from => "project_access"
+    within ".new_users_group" do
+      select2(user.id, from: "#user_ids", multiple: true)
+      select "Reporter", from: "group_access"
     end
-    click_button "Add"
+    click_button "Add users into group"
   end
 
   Then 'I should see user "John" in team list' do
@@ -59,13 +61,14 @@ class Groups < Spinach::FeatureSteps
 
   Given 'project from group has merge requests assigned to me' do
     create :merge_request,
-      project: project,
+      source_project: project,
+      target_project: project,
       assignee: current_user,
       author: current_user
   end
 
   When 'I click new group link' do
-    click_link "New Group"
+    click_link "New group"
   end
 
   And 'submit form with new group info' do
@@ -85,7 +88,7 @@ class Groups < Spinach::FeatureSteps
   end
 
   And 'I change group name' do
-    fill_in 'group_name', :with => 'new-name'
+    fill_in 'group_name', with: 'new-name'
     click_button "Save group"
   end
 

@@ -13,8 +13,22 @@
   }
 
   .tree-table {
+    @extend .table;
     @include border-radius(0);
-    .tree-item {
+
+    tr {
+      td, th {
+        padding: 8px 10px;
+        line-height: 20px;
+      }
+      th {
+        font-weight: normal;
+        font-size: 15px;
+        border-bottom: 1px solid #CCC;
+      }
+      td {
+        border-color: #F1F1F1;
+      }
       &:hover {
         td {
           background: $hover;
@@ -22,6 +36,13 @@
           border-bottom: 1px solid #ADF;
         }
         cursor: pointer;
+      }
+      &.selected {
+        td {
+          background: #f5f5f5;
+          border-top: 1px solid #EEE;
+          border-bottom: 1px solid #EEE;
+        }
       }
     }
   }
@@ -42,24 +63,8 @@
     }
   }
 
-  .tree-table {
-    th .btn {
-      margin: -2px -1px;
-      padding: 2px 10px;
-    }
-    td {
-      line-height: 20px;
-      background: #fafafa;
-    }
-  }
-
   .tree_author {
     padding-right: 8px;
-
-    img.avatar {
-      margin-top: 0;
-      width: 16px;
-    }
   }
 
   .tree_commit {
@@ -96,6 +101,8 @@
 }
 
 .tree-btn-group {
+  top: 2px;
+
   .btn {
     margin-right: 0px;
     padding: 2px 10px;

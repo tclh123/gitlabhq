@@ -23,12 +23,8 @@ body {
 
 .help li { color:$style_color; }
 
-.back_link {
-  text-decoration: underline;
+.back-link {
   font-size: 14px;
-  font-weight: bold;
-  padding: 10px 0;
-  padding-bottom: 0;
 }
 
 table a code {
@@ -50,15 +46,27 @@ table a code {
 /** FLASH message **/
 .flash-container {
   display: none;
-  .alert {
-    cursor: pointer;
-    margin: 0;
-    text-align: center;
-    border-radius: 0;
+  cursor: pointer;
+  margin: 0;
+  text-align: center;
+  color: #fff;
+  font-size: 14px;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  opacity: 0.8;
+  z-index: 100;
 
-    span {
-      font-size: 14px;
-    }
+  .flash-notice {
+    background: #49C;
+    padding: 10px;
+    text-shadow: 0 1px 1px #178;
+  }
+
+  .flash-alert {
+    background: #C67;
+    text-shadow: 0 1px 1px #945;
+    padding: 10px;
   }
 }
 
@@ -78,40 +86,6 @@ span.update-author {
   font-weight: bold;
 }
 
-.label {
-  padding: 1px 4px;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: normal;
-}
-
-form {
-  @extend .form-horizontal;
-
-  .actions {
-    @extend .form-actions;
-  }
-
-  .clearfix {
-    @extend .control-group;
-  }
-
-  .input {
-    @extend .controls;
-  }
-
-  label {
-    @extend .control-label;
-  }
-  .xlarge {
-    @extend .input-xlarge;
-  }
-  .xxlarge {
-    @extend .input-xxlarge;
-  }
-}
-
-
 .field_with_errors {
   display: inline;
 }
@@ -125,15 +99,6 @@ ul.breadcrumb {
   }
 
   a {
-    color: #474D57;
-    font-weight: bold;
-    font-size: 14px;
-  }
-}
-
-input[type=text] {
-  &.large_text {
-    padding: 6px;
     font-size: 16px;
   }
 }
@@ -146,23 +111,6 @@ input[type=text] {
   }
 }
 
-li.commit {
-  .avatar {
-    width: 24px;
-    top:-5px;
-    margin-right: 10px;
-    margin-left: 10px;
-  }
-
-  code {
-    padding: 2px 2px 0;
-    margin-top: -2px;
-    &:hover {
-      color: black;
-      border: 1px solid #ccc;
-    }
-  }
-}
 p.time {
   color: #999;
   font-size: 90%;
@@ -181,40 +129,12 @@ p.time {
   }
 }
 
+.highlight {
+  text-shadow: none;
+}
+
 .highlight_word {
   border-bottom: 2px solid #F90;
-}
-
-.status_info {
-  font-size: 14px;
-  padding: 5px 15px;
-  line-height: 26px;
-  text-align: center;
-  float: right;
-  position: relative;
-  top: -5px;
-  @include border-radius(4px);
-
-  &.success {
-    background: #4A4;
-    color: #FFF;
-  }
-
-  &.error {
-    background: #DA4E49;
-    color: #FFF;
-  }
-}
-
-.arrow{
-  background: #E3E5EA;
-  padding: 5px;
-  margin-top: 5px;
-  @include border-radius(5px);
-  text-shadow: none;
-  color: #999;
-  line-height: 16px;
-  font-weight: bold;
 }
 
 .thin_area{
@@ -254,19 +174,6 @@ li.note {
   }
 }
 
-.remember_me {
-  text-align: left;
-
-  input {
-    margin: 0;
-  }
-
-  span {
-    padding-left: 5px;
-  }
-}
-
-
 .rss-icon {
   img {
     width: 24px;
@@ -277,7 +184,6 @@ li.note {
     line-height: 24px;
   }
 }
-
 
 .supp_diff_link,
 .show-all-commits {
@@ -311,16 +217,28 @@ li.note {
   }
 }
 
-.error_message {
-  @extend .cred;
-  border-left: 4px solid #E99;
+.error-message {
   padding: 10px;
-  margin-bottom: 10px;
-  background: #FEE;
-  padding-left: 20px;
+  background: #C67;
+  margin: 0;
+  color: #FFF;
 
-  &.centered {
-    text-align: center;
+  a {
+    color: #fff;
+    text-decoration: underline;
+  }
+}
+
+.no-ssh-key-message {
+  padding: 10px 0;
+  background: #C67;
+  margin: 0;
+  color: #FFF;
+  text-align: center;
+
+  a {
+    color: #fff;
+    text-decoration: underline;
   }
 }
 
@@ -335,27 +253,6 @@ li.note {
   &.centered {
     text-align: center;
   }
-}
-
-.oauth_select_holder {
-  padding: 20px;
-  img {
-    padding: 5px;
-    margin-right: 10px;
-  }
-  .active {
-    img {
-      border: 1px solid #ccc;
-      background: $hover;
-      @include border-radius(5px);
-    }
-  }
-}
-
-.btn-build-token {
-  float: left;
-  padding: 6px 20px;
-  margin-right: 12px;
 }
 
 .gitlab-promo {
@@ -417,4 +314,47 @@ img.emoji {
 .chart {
   overflow: hidden;
   height: 220px;
+}
+
+.navless-container {
+  margin-top: 20px;
+}
+
+.description-block {
+  @extend .light-well;
+  @extend .light;
+  margin-bottom: 10px;
+}
+
+.group-name {
+  font-size: 14px;
+  line-height: 24px;
+}
+
+table {
+  td.permission-x {
+    background: #D9EDF7 !important;
+    text-align: center;
+  }
+}
+
+.dashboard-intro-icon {
+  float: left;
+  font-size: 32px;
+  color: #AAA;
+  padding: 5px 0;
+  width: 50px;
+  min-height: 100px;
+}
+
+.navbar-gitlab .navbar-inner .nav > li .btn-sign-in {
+  @extend .btn-new;
+  padding: 5px 15px;
+}
+
+.broadcast-message {
+  padding: 10px;
+  text-align: center;
+  background: #555;
+  color: #BBB;
 }

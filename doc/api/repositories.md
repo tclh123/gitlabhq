@@ -239,13 +239,116 @@ Parameters:
 ]
 ```
 
+## Get a single commit
+
+Get a specific commit identified by the commit hash or name of a branch or tag.
+
+```
+GET /projects/:id/repository/commits/:sha
+```
+
+Parameters:
+
++ `id` (required) - The ID of a project
++ `sha` (required) - The commit hash or name of a repository branch or tag
+
+```json
+{
+  "id": "6104942438c14ec7bd21c6cd5bd995272b3faff6",
+  "short_id": "6104942438c",
+  "title": "Sanitize for network graph",
+  "author_name": "randx",
+  "author_email": "dmitriy.zaporozhets@gmail.com",
+  "created_at": "2012-09-20T09:06:12+03:00"
+}
+```
+
+
+## Get the diff of a commit
+
+Get the diff of a commit in a project.
+
+```
+GET /projects/:id/repository/commits/:sha/diff
+```
+
+Parameters:
+
++ `id` (required) - The ID of a project
++ `sha` (required) - The name of a repository branch or tag or if not given the default branch
+
+```json
+[
+  {
+    "diff": "--- a/doc/update/5.4-to-6.0.md\n+++ b/doc/update/5.4-to-6.0.md\n@@ -71,6 +71,8 @@\n sudo -u git -H bundle exec rake migrate_keys RAILS_ENV=production\n sudo -u git -H bundle exec rake migrate_inline_notes RAILS_ENV=production\n \n+sudo -u git -H bundle exec rake assets:precompile RAILS_ENV=production\n+\n ```\n \n ### 6. Update config files",
+    "new_path": "doc/update/5.4-to-6.0.md",
+    "old_path": "doc/update/5.4-to-6.0.md",
+    "a_mode": null,
+    "b_mode": "100644",
+    "new_file": false,
+    "renamed_file": false,
+    "deleted_file": false
+  }
+]
+```
+
+## List repository tree
+
+Get a list of repository files and directories in a project.
+
+```
+GET /projects/:id/repository/tree
+```
+
+Parameters:
+
++ `id` (required) - The ID of a project
++ `path` (optional) - The path inside repository. Used to get contend of subdirectories
++ `ref_name` (optional) - The name of a repository branch or tag or if not given the default branch
+
+```json
+
+[{
+  "name": "assets",
+  "type": "tree",
+  "mode": "040000",
+  "id": "6229c43a7e16fcc7e95f923f8ddadb8281d9c6c6"
+}, {
+  "name": "contexts",
+  "type": "tree",
+  "mode": "040000",
+  "id": "faf1cdf33feadc7973118ca42d35f1e62977e91f"
+}, {
+  "name": "controllers",
+  "type": "tree",
+  "mode": "040000",
+  "id": "95633e8d258bf3dfba3a5268fb8440d263218d74"
+}, {
+  "name": "Rakefile",
+  "type": "blob",
+  "mode": "100644",
+  "id": "35b2f05cbb4566b71b34554cf184a9d0bd9d46d6"
+}, {
+  "name": "VERSION",
+  "type": "blob",
+  "mode": "100644",
+  "id": "803e4a4f3727286c3093c63870c2b6524d30ec4f"
+}, {
+  "name": "config.ru",
+  "type": "blob",
+  "mode": "100644",
+  "id": "dfd2d862237323aa599be31b473d70a8a817943b"
+}]
+
+```
+
 
 ## Raw blob content
 
 Get the raw file contents for a file.
 
 ```
-GET /projects/:id/repository/commits/:sha/blob
+GET /projects/:id/repository/blobs/:sha
 ```
 
 Parameters:
@@ -253,3 +356,44 @@ Parameters:
 + `id` (required) - The ID of a project
 + `sha` (required) - The commit or branch name
 + `filepath` (required) - The path the file
+
+
+## Get file archive
+
+Get a an archive of the repository
+
+```
+GET /projects/:id/repository/archive
+```
+
+Parameters:
++ `id` (required) - The ID of a project
++ `sha` (optional) - The commit sha to download defaults to the tip of the default branch
+
+
+## Create new file in repository
+
+```
+POST /projects/:id/repository/files
+```
+
+Parameters:
+
++ `file_name` (required) - The name of new file. Ex. class.rb
++ `file_path` (optional) - The path to new file. Ex. lib/
++ `branch_name` (required) - The name of branch
++ `content` (required) - File content
++ `commit_message` (required) - Commit message
+
+## Update existing file in repository
+
+```
+PUT /projects/:id/repository/files
+```
+
+Parameters:
+
++ `file_path` (required) - Full path to file. Ex. lib/class.rb
++ `branch_name` (required) - The name of branch
++ `content` (required) - New file content
++ `commit_message` (required) - Commit message

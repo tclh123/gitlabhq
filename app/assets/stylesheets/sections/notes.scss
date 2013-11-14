@@ -1,6 +1,13 @@
 /**
  * Notes
  */
+
+@-webkit-keyframes target-note {
+  from { background:#fffff0; }
+  50% { background:#ffffd3; }
+  to { background:#fffff0; }
+}
+
 ul.notes {
   display: block;
   list-style: none;
@@ -85,10 +92,19 @@ ul.notes {
     .note-body {
       @include md-typography;
       margin-left: 45px;
+
+      .highlight {
+        @include border-radius(4px);
+      }
     }
     .note-header {
       padding-bottom: 5px;
     }
+  }
+
+  .note:target {
+    -webkit-animation:target-note 2s linear;
+    background: #fffff0;
   }
 
   // paint top or bottom borders depending on notes direction
@@ -119,11 +135,15 @@ ul.notes {
       background-color: $white;
       border-width: 1px 0;
       padding-top: 0;
+
+      li {
+        padding: 5px;
+      }
     }
   }
 
   .reply-btn {
-    margin-top: 8px;
+    margin: 5px;
   }
 }
 
@@ -308,4 +328,33 @@ ul.notes {
   .js-notify-commit-author {
     float: left;
   }
+}
+
+.note-edit-form {
+  display: none;
+
+  .note_text {
+    border: 1px solid #DDD;
+    box-shadow: none;
+    font-size: 14px;
+    height: 80px;
+    width: 98.6%;
+  }
+
+  .form-actions {
+    padding-left: 20px;
+
+    .btn-save {
+      float: left;
+    }
+
+    .note-form-option {
+      float: left;
+      padding: 2px 0 0 25px;
+    }
+  }
+}
+
+.js-note-attachment-delete {
+  display: none;
 }

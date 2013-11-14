@@ -1,9 +1,11 @@
 require_relative 'shell_env'
-require 'omniauth-ldap'
+require_relative 'grack_helpers'
 
 module Grack
   class Auth < Rack::Auth::Basic
-    attr_accessor :user, :project
+    include Helpers
+
+    attr_accessor :user, :project, :ref, :env
 
     def call(env)
       @env = env
@@ -11,83 +13,76 @@ module Grack
       @auth = Request.new(env)
 
       # Need this patch due to the rails mount
-      @env['PATH_INFO'] = @request.path
+
+      # Need this if under RELATIVE_URL_ROOT
+      unless Gitlab.config.gitlab.relative_url_root.empty?
+        # If website is mounted using relative_url_root need to remove it first
+        @env['PATH_INFO'] = @request.path.sub(Gitlab.config.gitlab.relative_url_root,'')
+      else
+        @env['PATH_INFO'] = @request.path
+      end
+
       @env['SCRIPT_NAME'] = ""
 
-      return render_not_found unless project
-      return unauthorized unless project.public || @auth.provided?
-      return bad_request if @auth.provided? && !@auth.basic?
+      auth!
+    end
 
-      if valid?
-        if @auth.provided?
-          @env['REMOTE_USER'] = @auth.username
+    private
+
+    def auth!
+      return render_not_found unless project
+
+      if @auth.provided?
+        return bad_request unless @auth.basic?
+
+        # Authentication with username and password
+        login, password = @auth.credentials
+
+        # Allow authentication for GitLab CI service
+        # if valid token passed
+        if login == "gitlab-ci-token" && project.gitlab_ci?
+          token = project.gitlab_ci_service.token
+
+          if token.present? && token == password && service_name == 'git-upload-pack'
+            return @app.call(env)
+          end
         end
-        return @app.call(env)
+
+        @user = authenticate_user(login, password)
+
+        if @user
+          Gitlab::ShellEnv.set_env(@user)
+          @env['REMOTE_USER'] = @auth.username
+        else
+          return unauthorized
+        end
+
+      else
+        return unauthorized unless project.public
+      end
+
+      if authorized_git_request?
+        @app.call(env)
       else
         unauthorized
       end
     end
 
-    def valid?
-      if @auth.provided?
-        # Authentication with username and password
-        login, password = @auth.credentials
-        self.user = User.find_by_email(login) || User.find_by_username(login)
-
-        # If the provided login was not a known email or username
-        # then user is nil
-        if user.nil? 
-          # Second chance - try LDAP authentication
-          return false unless Gitlab.config.ldap.enabled         
-          ldap_auth(login,password)
-          return false unless !user.nil?
-        else
-          return false unless user.valid_password?(password)
-        end
-           
-        Gitlab::ShellEnv.set_env(user)
-      end
-
-      # Git upload and receive
-      if @request.get?
-        validate_get_request
-      elsif @request.post?
-        validate_post_request
-      else
-        false
-      end
+    def authorized_git_request?
+      authorize_request(service_name)
     end
 
-    def ldap_auth(login, password)
-      # Check user against LDAP backend if user is not authenticated
-      # Only check with valid login and password to prevent anonymous bind results
-      gl = Gitlab.config
-      if gl.ldap.enabled && !login.blank? && !password.blank?
-        ldap = OmniAuth::LDAP::Adaptor.new(gl.ldap)
-        ldap_user = ldap.bind_as(
-          filter: Net::LDAP::Filter.eq(ldap.uid, login),
-          size: 1,
-          password: password
-        )
-        if ldap_user
-          self.user = User.find_by_extern_uid_and_provider(ldap_user.dn, 'ldap')
-        end
-      end
+    def authenticate_user(login, password)
+      auth = Gitlab::Auth.new
+      auth.find(login, password)
     end
 
-    def validate_get_request
-      validate_request(@request.params['service'])
-    end
-
-    def validate_post_request
-      validate_request(File.basename(@request.path))
-    end
-
-    def validate_request(service)
-      if service == 'git-upload-pack'
+    def authorize_request(service)
+      case service
+      when 'git-upload-pack'
         project.public || can?(user, :download_code, project)
-      elsif service == 'git-receive-pack'
-        action = if project.protected_branch?(current_ref)
+      when'git-receive-pack'
+        action = if project.protected_branch?(ref)
                    :push_code_to_protected_branches
                  else
                    :push_code
@@ -99,45 +94,34 @@ module Grack
       end
     end
 
-    def can?(object, action, subject)
-      abilities.allowed?(object, action, subject)
-    end
-
-    def current_ref
-      if @env["HTTP_CONTENT_ENCODING"] =~ /gzip/
-        input = Zlib::GzipReader.new(@request.body).read
+    def service_name
+      if @request.get?
+        @request.params['service']
+      elsif @request.post?
+        File.basename(@request.path)
       else
-        input = @request.body.read
+        nil
       end
-      # Need to reset seek point
-      @request.body.rewind
-      /refs\/heads\/([\w\.-]+)/n.match(input.force_encoding('ascii-8bit')).to_a.last
     end
 
     def project
-      unless instance_variable_defined? :@project
-        # Find project by PATH_INFO from env
-        if m = /^\/([\w\.\/-]+)\.git/.match(@request.path_info).to_a
-          @project = Project.find_with_namespace(m.last)
-        end
-      end
-      return @project
+      @project ||= project_by_path(@request.path_info)
     end
 
-    PLAIN_TYPE = {"Content-Type" => "text/plain"}
-
-    def render_not_found
-      [404, PLAIN_TYPE, ["Not Found"]]
+    def ref
+      @ref ||= parse_ref
     end
 
-    protected
+    def parse_ref
+      input = if @env["HTTP_CONTENT_ENCODING"] =~ /gzip/
+                Zlib::GzipReader.new(@request.body).read
+              else
+                @request.body.read
+              end
 
-    def abilities
-      @abilities ||= begin
-                       abilities = Six.new
-                       abilities << Ability
-                       abilities
-                     end
+      # Need to reset seek point
+      @request.body.rewind
+      /refs\/heads\/([\/\w\.-]+)/n.match(input.force_encoding('ascii-8bit')).to_a.last
     end
-  end# Auth
-end# Grack
+  end
+end

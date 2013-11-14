@@ -15,7 +15,7 @@ describe Notify do
 
   describe 'for new users, the email' do
     let(:example_site_path) { root_path }
-    let(:new_user) { create(:user, email: 'newguy@example.com') }
+    let(:new_user) { create(:user, email: 'newguy@example.com', created_by_id: 1) }
 
     subject { Notify.new_user_email(new_user.id, new_user.password) }
 
@@ -32,8 +32,7 @@ describe Notify do
     end
 
     it 'contains the new user\'s password' do
-      Gitlab.config.gitlab.stub(:signup_enabled).and_return(false)
-      should have_body_text /#{new_user.password}/
+      should have_body_text /password/
     end
 
     it 'includes a link to the site' do
@@ -61,8 +60,7 @@ describe Notify do
     end
 
     it 'should not contain the new user\'s password' do
-      Gitlab.config.gitlab.stub(:signup_enabled).and_return(true)
-      should_not have_body_text /#{new_user.password}/
+      should_not have_body_text /password/
     end
 
     it 'includes a link to the site' do
@@ -88,7 +86,7 @@ describe Notify do
     end
 
     it 'includes a link to ssh keys page' do
-      should have_body_text /#{keys_path}/
+      should have_body_text /#{profile_keys_path}/
     end
   end
 
@@ -112,7 +110,7 @@ describe Notify do
           it_behaves_like 'an assignee email'
 
           it 'has the correct subject' do
-            should have_subject /#{project.name} \| new issue ##{issue.id} \| #{issue.title}/
+            should have_subject /#{project.name} \| New issue ##{issue.iid} \| #{issue.title}/
           end
 
           it 'contains a link to the new issue' do
@@ -128,7 +126,7 @@ describe Notify do
           it_behaves_like 'a multiple recipients email'
 
           it 'has the correct subject' do
-            should have_subject /changed issue ##{issue.id} \| #{issue.title}/
+            should have_subject /Changed issue ##{issue.iid} \| #{issue.title}/
           end
 
           it 'contains the name of the previous assignee' do
@@ -150,7 +148,7 @@ describe Notify do
           subject { Notify.issue_status_changed_email(recipient.id, issue.id, status, current_user) }
 
           it 'has the correct subject' do
-            should have_subject /changed issue ##{issue.id} \| #{issue.title}/i
+            should have_subject /Changed issue ##{issue.iid} \| #{issue.title}/i
           end
 
           it 'contains the new status' do
@@ -169,7 +167,7 @@ describe Notify do
       end
 
       context 'for merge requests' do
-        let(:merge_request) { create(:merge_request, assignee: assignee, project: project) }
+        let(:merge_request) { create(:merge_request, assignee: assignee, source_project: project, target_project: project) }
 
         describe 'that are new' do
           subject { Notify.new_merge_request_email(merge_request.assignee_id, merge_request.id) }
@@ -177,7 +175,7 @@ describe Notify do
           it_behaves_like 'an assignee email'
 
           it 'has the correct subject' do
-            should have_subject /new merge request !#{merge_request.id}/
+            should have_subject /New merge request ##{merge_request.iid}/
           end
 
           it 'contains a link to the new merge request' do
@@ -201,7 +199,7 @@ describe Notify do
           it_behaves_like 'a multiple recipients email'
 
           it 'has the correct subject' do
-            should have_subject /changed merge request !#{merge_request.id}/
+            should have_subject /Changed merge request ##{merge_request.iid}/
           end
 
           it 'contains the name of the previous assignee' do
@@ -220,6 +218,24 @@ describe Notify do
       end
     end
 
+    describe 'project was moved' do
+      let(:project) { create(:project) }
+      let(:user) { create(:user) }
+      subject { Notify.project_was_moved_email(project.id, user.id) }
+
+      it 'has the correct subject' do
+        should have_subject /Project was moved/
+      end
+
+      it 'contains name of project' do
+        should have_body_text /#{project.name_with_namespace}/
+      end
+
+      it 'contains new user role' do
+        should have_body_text /#{project.ssh_url_to_repo}/
+      end
+    end
+
     describe 'project access changed' do
       let(:project) { create(:project) }
       let(:user) { create(:user) }
@@ -228,13 +244,13 @@ describe Notify do
                                    user: user) }
       subject { Notify.project_access_granted_email(users_project.id) }
       it 'has the correct subject' do
-        should have_subject /access to project was granted/
+        should have_subject /Access to project was granted/
       end
       it 'contains name of project' do
         should have_body_text /#{project.name}/
       end
       it 'contains new user role' do
-        should have_body_text /#{users_project.project_access_human}/
+        should have_body_text /#{users_project.human_access}/
       end
     end
 
@@ -286,7 +302,7 @@ describe Notify do
         it_behaves_like 'a note email'
 
         it 'has the correct subject' do
-          should have_subject /note for commit #{commit.short_id}/
+          should have_subject /Note for commit #{commit.short_id}/
         end
 
         it 'contains a link to the commit' do
@@ -295,7 +311,7 @@ describe Notify do
       end
 
       describe 'on a merge request' do
-        let(:merge_request) { create(:merge_request, project: project) }
+        let(:merge_request) { create(:merge_request, source_project: project, target_project: project) }
         let(:note_on_merge_request_path) { project_merge_request_path(project, merge_request, anchor: "note_#{note.id}") }
         before(:each) { note.stub(:noteable).and_return(merge_request) }
 
@@ -304,7 +320,7 @@ describe Notify do
         it_behaves_like 'a note email'
 
         it 'has the correct subject' do
-          should have_subject /note for merge request !#{merge_request.id}/
+          should have_subject /Note for merge request ##{merge_request.iid}/
         end
 
         it 'contains a link to the merge request note' do
@@ -322,13 +338,57 @@ describe Notify do
         it_behaves_like 'a note email'
 
         it 'has the correct subject' do
-          should have_subject /note for issue ##{issue.id}/
+          should have_subject /Note for issue ##{issue.iid}/
         end
 
         it 'contains a link to the issue note' do
           should have_body_text /#{note_on_issue_path}/
         end
       end
+    end
+  end
+
+  describe 'group access changed' do
+    let(:group) { create(:group) }
+    let(:user) { create(:user) }
+    let(:membership) { create(:users_group, group: group, user: user) }
+
+    subject { Notify.group_access_granted_email(membership.id) }
+
+    it 'has the correct subject' do
+      should have_subject /Access to group was granted/
+    end
+
+    it 'contains name of project' do
+      should have_body_text /#{group.name}/
+    end
+
+    it 'contains new user role' do
+      should have_body_text /#{membership.human_access}/
+    end
+  end
+
+  describe 'confirmation if email changed' do
+    let(:example_site_path) { root_path }
+    let(:user) { create(:user, email: 'old-email@mail.com') }
+
+    before do
+      user.email = "new-email@mail.com"
+      user.save
+    end
+
+    subject { ActionMailer::Base.deliveries.last }
+
+    it 'is sent to the new user' do
+      should deliver_to 'new-email@mail.com'
+    end
+
+    it 'has the correct subject' do
+      should have_subject "Confirmation instructions"
+    end
+
+    it 'includes a link to the site' do
+      should have_body_text /#{example_site_path}/
     end
   end
 end

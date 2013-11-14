@@ -28,7 +28,9 @@ module Backup
 
         if File.exists?(path_to_repo(wiki))
           print " * #{wiki.path_with_namespace} ... "
-          if system("cd #{path_to_repo(wiki)} > /dev/null 2>&1 && git bundle create #{path_to_bundle(wiki)} --all > /dev/null 2>&1")
+          if wiki.empty?
+            puts " [SKIPPED]".cyan
+          elsif system("cd #{path_to_repo(wiki)} > /dev/null 2>&1 && git bundle create #{path_to_bundle(wiki)} --all > /dev/null 2>&1")
             puts " [DONE]".green
           else
             puts " [FAILED]".red
@@ -71,7 +73,7 @@ module Backup
 
       print 'Put GitLab hooks in repositories dirs'.yellow
       gitlab_shell_user_home = File.expand_path("~#{Gitlab.config.gitlab_shell.ssh_user}")
-      if system("#{gitlab_shell_user_home}/gitlab-shell/support/rewrite-hooks.sh")
+      if system("#{gitlab_shell_user_home}/gitlab-shell/support/rewrite-hooks.sh #{Gitlab.config.gitlab_shell.repos_path}")
         puts " [DONE]".green
       else
         puts " [FAILED]".red

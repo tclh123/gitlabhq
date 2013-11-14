@@ -1,4 +1,4 @@
-module Gitlab
+module API
   # Issues API
   class Issues < Grape::API
     before { authenticate! }
@@ -48,15 +48,17 @@ module Gitlab
       # Example Request:
       #   POST /projects/:id/issues
       post ":id/issues" do
-        required_attributes! [:title]
-        attrs = attributes_for_keys [:title, :description, :assignee_id, :milestone_id]
-        attrs[:label_list] = params[:labels] if params[:labels].present?
-        @issue = user_project.issues.new attrs
-        @issue.author = current_user
-        if @issue.save
-          present @issue, with: Entities::Issue
-        else
-          not_found!
+        set_current_user_for_thread do
+          required_attributes! [:title]
+          attrs = attributes_for_keys [:title, :description, :assignee_id, :milestone_id]
+          attrs[:label_list] = params[:labels] if params[:labels].present?
+          @issue = user_project.issues.new attrs
+          @issue.author = current_user
+          if @issue.save
+            present @issue, with: Entities::Issue
+          else
+            not_found!
+          end
         end
       end
 
@@ -70,20 +72,22 @@ module Gitlab
       #   assignee_id (optional) - The ID of a user to assign issue
       #   milestone_id (optional) - The ID of a milestone to assign issue
       #   labels (optional) - The labels of an issue
-      #   state (optional) - The state of an issue (close|reopen)
+      #   state_event (optional) - The state event of an issue (close|reopen)
       # Example Request:
       #   PUT /projects/:id/issues/:issue_id
       put ":id/issues/:issue_id" do
-        @issue = user_project.issues.find(params[:issue_id])
-        authorize! :modify_issue, @issue
+        set_current_user_for_thread do
+          @issue = user_project.issues.find(params[:issue_id])
+          authorize! :modify_issue, @issue
 
-        attrs = attributes_for_keys [:title, :description, :assignee_id, :milestone_id, :state_event]
-        attrs[:label_list] = params[:labels] if params[:labels].present?
-        IssueObserver.current_user = current_user
-        if @issue.update_attributes attrs
-          present @issue, with: Entities::Issue
-        else
-          not_found!
+          attrs = attributes_for_keys [:title, :description, :assignee_id, :milestone_id, :state_event]
+          attrs[:label_list] = params[:labels] if params[:labels].present?
+
+          if @issue.update_attributes attrs
+            present @issue, with: Entities::Issue
+          else
+            not_found!
+          end
         end
       end
 

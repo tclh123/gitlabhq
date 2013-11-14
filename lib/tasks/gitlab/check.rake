@@ -22,6 +22,7 @@ namespace :gitlab do
       check_tmp_writable
       check_init_script_exists
       check_init_script_up_to_date
+      check_projects_have_namespace
       check_satellites_exist
       check_redis_version
       check_git_version
@@ -138,13 +139,15 @@ namespace :gitlab do
     def check_init_script_up_to_date
       print "Init script up-to-date? ... "
 
+      recipe_path = Rails.root.join("lib/support/init.d/", "gitlab")
       script_path = "/etc/init.d/gitlab"
+
       unless File.exists?(script_path)
         puts "can't check because of previous errors".magenta
         return
       end
 
-      recipe_content = `curl https://raw.github.com/gitlabhq/gitlab-recipes/master/init.d/gitlab 2>/dev/null`
+      recipe_content = File.read(recipe_path)
       script_content = File.read(script_path)
 
       if recipe_content == script_content
@@ -219,7 +222,7 @@ namespace :gitlab do
         puts "no".red
         try_fixing_it(
           "sudo chown -R gitlab #{log_path}",
-          "sudo chmod -R rwX #{log_path}"
+          "sudo chmod -R u+rwX #{log_path}"
         )
         for_more_information(
           see_installation_guide_section "GitLab"
@@ -239,7 +242,7 @@ namespace :gitlab do
         puts "no".red
         try_fixing_it(
           "sudo chown -R gitlab #{tmp_path}",
-          "sudo chmod -R rwX #{tmp_path}"
+          "sudo chmod -R u+rwX #{tmp_path}"
         )
         for_more_information(
           see_installation_guide_section "GitLab"
@@ -286,7 +289,6 @@ namespace :gitlab do
     ########################
 
     def check_gitlab_git_config
-      gitlab_user = Gitlab.config.gitlab.user
       print "Git configured for #{gitlab_user} user? ... "
 
       options = {
@@ -362,20 +364,21 @@ namespace :gitlab do
 
 
   namespace :gitlab_shell do
-    desc "GITLAB | Check the configuration of Gitlab Shell"
+    desc "GITLAB | Check the configuration of GitLab Shell"
     task check: :environment  do
       warn_user_is_not_gitlab
-      start_checking "Gitlab Shell"
+      start_checking "GitLab Shell"
 
       check_gitlab_shell
       check_repo_base_exists
       check_repo_base_is_not_symlink
       check_repo_base_user_and_group
       check_repo_base_permissions
-      check_post_receive_hook_is_up_to_date
-      check_repos_post_receive_hooks_is_link
+      check_update_hook_is_up_to_date
+      check_repos_update_hooks_is_link
+      check_gitlab_shell_self_test
 
-      finished_checking "Gitlab Shell"
+      finished_checking "GitLab Shell"
     end
 
 
@@ -383,20 +386,26 @@ namespace :gitlab do
     ########################
 
 
-    def check_post_receive_hook_is_up_to_date
-      print "post-receive hook up-to-date? ... "
+    def check_update_hook_is_up_to_date
+      print "update hook up-to-date? ... "
 
-      hook_file = "post-receive"
+      hook_file = "update"
       gitlab_shell_hooks_path = Gitlab.config.gitlab_shell.hooks_path
       gitlab_shell_hook_file  = File.join(gitlab_shell_hooks_path, hook_file)
-      gitlab_shell_ssh_user = Gitlab.config.gitlab_shell.ssh_user
 
-      unless File.exists?(gitlab_shell_hook_file)
-        puts "can't check because of previous errors".magenta
-        return
+      if File.exists?(gitlab_shell_hook_file)
+        puts "yes".green
+      else
+        puts "no".red
+        puts "Could not find #{gitlab_shell_hook_file}"
+        try_fixing_it(
+          'Check the hooks_path in config/gitlab.yml',
+          'Check your gitlab-shell installation'
+        )
+        for_more_information(
+          see_installation_guide_section "GitLab Shell"
+        )
       end
-
-      puts "yes".green
     end
 
     def check_repo_base_exists
@@ -410,12 +419,12 @@ namespace :gitlab do
         puts "no".red
         puts "#{repo_base_path} is missing".red
         try_fixing_it(
-          "This should have been created when setting up Gitlab Shell.",
+          "This should have been created when setting up GitLab Shell.",
           "Make sure it's set correctly in config/gitlab.yml",
-          "Make sure Gitlab Shell is installed correctly."
+          "Make sure GitLab Shell is installed correctly."
         )
         for_more_information(
-          see_installation_guide_section "Gitlab Shell"
+          see_installation_guide_section "GitLab Shell"
         )
         fix_and_rerun
       end
@@ -460,7 +469,7 @@ namespace :gitlab do
           "find #{repo_base_path} -type d -print0 | sudo xargs -0 chmod g+s"
         )
         for_more_information(
-          see_installation_guide_section "Gitlab Shell"
+          see_installation_guide_section "GitLab Shell"
         )
         fix_and_rerun
       end
@@ -477,25 +486,27 @@ namespace :gitlab do
         return
       end
 
-      if File.stat(repo_base_path).uid == uid_for(gitlab_shell_ssh_user) &&
-         File.stat(repo_base_path).gid == gid_for(gitlab_shell_owner_group)
+      uid = uid_for(gitlab_shell_ssh_user)
+      gid = gid_for(gitlab_shell_owner_group)
+      if File.stat(repo_base_path).uid == uid && File.stat(repo_base_path).gid == gid
         puts "yes".green
       else
         puts "no".red
+        puts "  User id for #{gitlab_shell_ssh_user}: #{uid}. Groupd id for #{gitlab_shell_owner_group}: #{gid}".blue
         try_fixing_it(
           "sudo chown -R #{gitlab_shell_ssh_user}:#{gitlab_shell_owner_group} #{repo_base_path}"
         )
         for_more_information(
-          see_installation_guide_section "Gitlab Shell"
+          see_installation_guide_section "GitLab Shell"
         )
         fix_and_rerun
       end
     end
 
-    def check_repos_post_receive_hooks_is_link
-      print "post-receive hooks in repos are links: ... "
+    def check_repos_update_hooks_is_link
+      print "update hooks in repos are links: ... "
 
-      hook_file = "post-receive"
+      hook_file = "update"
       gitlab_shell_hooks_path = Gitlab.config.gitlab_shell.hooks_path
       gitlab_shell_hook_file  = File.join(gitlab_shell_hooks_path, hook_file)
       gitlab_shell_ssh_user = Gitlab.config.gitlab_shell.ssh_user
@@ -535,7 +546,7 @@ namespace :gitlab do
               File.realpath(project_hook_file) == File.realpath(gitlab_shell_hook_file)
             puts "ok".green
           else
-            puts "not a link to Gitlab Shell's hook".red
+            puts "not a link to GitLab Shell's hook".red
             try_fixing_it(
               "sudo -u #{gitlab_shell_ssh_user} ln -sf #{gitlab_shell_hook_file} #{project_hook_file}"
             )
@@ -548,6 +559,49 @@ namespace :gitlab do
       end
     end
 
+    def check_gitlab_shell_self_test
+      gitlab_shell_repo_base = File.expand_path('gitlab-shell', gitlab_shell_user_home)
+      check_cmd = File.expand_path('bin/check', gitlab_shell_repo_base)
+      puts "Running #{check_cmd}"
+      if system(check_cmd, chdir: gitlab_shell_repo_base)
+        puts 'gitlab-shell self-check successful'.green
+      else
+        puts 'gitlab-shell self-check failed'.red
+        try_fixing_it(
+          'Make sure GitLab is running;',
+          'Check the gitlab-shell configuration file:',
+          sudo_gitlab("editor #{File.expand_path('config.yml', gitlab_shell_repo_base)}")
+        )
+        fix_and_rerun
+      end
+    end
+
+    def check_projects_have_namespace
+      print "projects have namespace: ... "
+
+      unless Project.count > 0
+        puts "can't check, you have no projects".magenta
+        return
+      end
+      puts ""
+
+      Project.find_each(batch_size: 100) do |project|
+        print "#{project.name_with_namespace.yellow} ... "
+
+        if project.namespace
+          puts "yes".green
+        else
+          puts "no".red
+          try_fixing_it(
+            "Migrate global projects"
+          )
+          for_more_information(
+            "doc/update/5.4-to-6.0.md in section \"#global-projects\""
+          )
+          fix_and_rerun
+        end
+      end
+    end
 
     # Helper methods
     ########################
@@ -577,6 +631,7 @@ namespace :gitlab do
       start_checking "Sidekiq"
 
       check_sidekiq_running
+      only_one_sidekiq_running
 
       finished_checking "Sidekiq"
     end
@@ -588,12 +643,12 @@ namespace :gitlab do
     def check_sidekiq_running
       print "Running? ... "
 
-      if run_and_match("ps aux | grep -i sidekiq", /sidekiq \d\.\d\.\d.+$/)
+      if sidekiq_process_count > 0
         puts "yes".green
       else
         puts "no".red
         try_fixing_it(
-          sudo_gitlab("bundle exec rake sidekiq:start RAILS_ENV=production")
+          sudo_gitlab("RAILS_ENV=production script/background_jobs start")
         )
         for_more_information(
           see_installation_guide_section("Install Init Script"),
@@ -601,6 +656,29 @@ namespace :gitlab do
         )
         fix_and_rerun
       end
+    end
+
+    def only_one_sidekiq_running
+      process_count = sidekiq_process_count
+      return if process_count.zero?
+
+      print 'Number of Sidekiq processes ... '
+      if process_count == 1
+        puts '1'.green
+      else
+        puts "#{process_count}".red
+        try_fixing_it(
+          'sudo service gitlab stop',
+          "sudo pkill -u #{gitlab_user} -f sidekiq",
+          "sleep 10 && sudo pkill -9 -u #{gitlab_user} -f sidekiq",
+          'sudo service gitlab start'
+        )
+        fix_and_rerun
+      end
+    end
+
+    def sidekiq_process_count
+      `ps ux`.scan(/sidekiq \d+\.\d+\.\d+/).count
     end
   end
 
@@ -636,8 +714,11 @@ namespace :gitlab do
   end
 
   def sudo_gitlab(command)
-    gitlab_user = Gitlab.config.gitlab.user
     "sudo -u #{gitlab_user} -H #{command}"
+  end
+
+  def gitlab_user
+    Gitlab.config.gitlab.user
   end
 
   def start_checking(component)
@@ -655,25 +736,30 @@ namespace :gitlab do
   end
 
   def check_gitlab_shell
-    required_version = '1.4.0'
+    required_version = Gitlab::VersionInfo.new(1, 7, 8)
+    current_version = Gitlab::VersionInfo.parse(gitlab_shell_version)
 
-    print "GitLab Shell version? ... "
-    if gitlab_shell_version.strip == required_version
-      puts "OK (#{required_version})".green
+    print "GitLab Shell version >= #{required_version} ? ... "
+    if current_version.valid? && required_version <= current_version
+      puts "OK (#{current_version})".green
     else
-      puts "FAIL. Please update gitlab-shell to v#{required_version}".red
+      puts "FAIL. Please update gitlab-shell to #{required_version} from #{current_version}".red
     end
   end
 
   def check_git_version
-    print "Git version >= 1.7.10 ? ... "
+    required_version = Gitlab::VersionInfo.new(1, 7, 10)
+    current_version = Gitlab::VersionInfo.parse(run("#{Gitlab.config.git.bin_path} --version"))
 
-    if run_and_match("git --version", /git version 1.7.10.\d/)
-      puts "yes".green
+    puts "Your git bin path is \"#{Gitlab.config.git.bin_path}\""
+    print "Git version >= #{required_version} ? ... "
+
+    if current_version.valid? && required_version <= current_version
+        puts "yes (#{current_version})".green
     else
       puts "no".red
       try_fixing_it(
-        "Update your git to a version >= 1.7.10"
+        "Update your git to a version >= #{required_version} from #{current_version}"
       )
       fix_and_rerun
     end

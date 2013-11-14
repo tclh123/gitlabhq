@@ -66,7 +66,7 @@ python2 is supported version? ... yes
 
 Checking Environment ... Finished
 
-Checking Gitlab Shell ...
+Checking GitLab Shell ...
 
 GitLab Shell version? ... OK (1.2.0)
 Repo base directory exists? ... yes
@@ -76,7 +76,7 @@ Repo base access is drwxrws---? ... yes
 post-receive hook up-to-date? ... yes
 post-receive hooks in repos are links: ... yes
 
-Checking Gitlab Shell ... Finished
+Checking GitLab Shell ... Finished
 
 Checking Sidekiq ...
 
@@ -116,11 +116,13 @@ bundle exec rake gitlab:satellites:create RAILS_ENV=production
 Notes:
 
 * project owner will be a first admin
+* groups will be created as needed
+* group owner will be the first admin
 * existing projects will be skipped
 
 How to use:
 
-1. copy your bare repos under git base_path (see `config/gitlab.yml` git_host -> base_path)
+1. copy your bare repos under git repos_path (see `config/gitlab.yml` gitlab_shell -> repos_path)
 2. run the command below
 
 ```
@@ -132,5 +134,8 @@ Example output:
 ```
 Processing abcd.git
  * Created abcd (abcd.git)
+Processing group/xyz.git
+ * Created Group group (2)
+ * Created xyz (group/xyz.git)
 [...]
 ```

@@ -60,11 +60,11 @@ class Wall
   renderNote: (note) ->
     template = @noteTemplate()
     template = template.replace('{{author_name}}', note.author.name)
-    template = template.replace('{{created_at}}', note.created_at)
-    template = template.replace('{{text}}', linkify(sanitize(note.body)))
+    template = template.replace(/{{created_at}}/g, note.created_at)
+    template = template.replace('{{text}}', simpleFormat(note.body))
 
     if note.attachment
-      file = '<i class="icon-paper-clip"/><a href="/files/note/' + note.id + '/' + note.attachment + '">' + note.attachment + '</a>'
+      file = '<i class="icon-paper-clip"/><a href="' + gon.relative_url_root + '/files/note/' + note.id + '/' + note.attachment + '">' + note.attachment + '</a>'
     else
       file = ''
     template = template.replace('{{file}}', file)

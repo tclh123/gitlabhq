@@ -10,9 +10,12 @@
 #  created_at  :datetime         not null
 #  updated_at  :datetime         not null
 #  state       :string(255)
+#  iid         :integer
 #
 
 class Milestone < ActiveRecord::Base
+  include InternalId
+
   attr_accessible :title, :description, :due_date, :state_event, :author_id_of_changes
   attr_accessor :author_id_of_changes
 
@@ -72,9 +75,9 @@ class Milestone < ActiveRecord::Base
       if due_date.past?
         "expired at #{due_date.stamp("Aug 21, 2011")}"
       else
-        "expires at #{due_date.stamp("Aug 21, 2011")}"  
+        "expires at #{due_date.stamp("Aug 21, 2011")}"
       end
-    end  
+    end
   end
 
   def can_be_closed?

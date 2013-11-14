@@ -10,23 +10,45 @@
  *
  */
 .ui-box {
-  background: #F9F9F9;
-  margin-bottom: 25px;
-  border: 1px solid #CCC;
+  background: #FFF;
+  margin-bottom: 20px;
+  border: 1px solid #DDD;
   word-wrap: break-word;
-  @include solid-shade;
+
+  &.small-box {
+    margin-bottom: 10px;
+
+    .title {
+      font-size: 13px;
+      line-height: 30px;
+
+      a {
+        color: #666;
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
 
   &.ui-box-show {
+    color: #666;
     margin:20px 0;
-    background: #FFF;
+    background: #FAFAFA;
+
+    .control-group {
+      margin-bottom: 0;
+    }
   }
 
   &.ui-box-danger {
+    background: #f7f7f7;
+    border: none;
+
     .title {
-      @include linear-gradient(#F26E5E, #bd362f);
+      background: #D65;
       color: #fff;
       text-shadow: 0 1px 1px #900;
-      font-weight: bold;
     }
   }
 
@@ -50,10 +72,10 @@
 
   .ui-box-head {
     .box-title {
-      color: $style_color;
       font-size: 18px;
       font-weight: normal;
       line-height: 28px;
+      margin: 0;
     }
     h3 {
       margin: 0;
@@ -62,7 +84,6 @@
 
   .ui-box-body {
     border: none;
-    font-size: 12px;
     background-color: #f5f5f5;
     border: none;
     border-top: 1px solid #eee;
@@ -72,24 +93,21 @@
     border-top: 1px solid #eee;
   }
 
-  &.white {
-    background: #fff;
-  }
-
   ul {
     margin: 0;
   }
 
   .title {
-    @include bg-gray-gradient;
-    border-bottom: 1px solid #CCC;
-    color: #456;
+    background-color: #EEE;
+    border-bottom: 1px solid #DDD;
+    color: #666;
     font-size: 16px;
     text-shadow: 0 1px 1px #fff;
-    padding: 0px 10px;
-    line-height: 36px;
+    padding: 0 10px;
     font-size: 14px;
+    line-height: 40px;
     font-weight: normal;
+    margin: 0;
 
     > a {
       text-shadow: 0 1px 1px #fff;
@@ -101,8 +119,9 @@
     }
 
     .btn {
-      position: relative;
-      top: -2px;
+      vertical-align: middle;
+      padding: 4px 12px;
+      @include box-shadow(0 0px 1px 1px #f2f2f2);
     }
 
     .nav-pills {
@@ -131,15 +150,6 @@
       margin: -20px;
       margin-bottom: 0;
       padding: 5px 20px;
-    }
-    .middle_title {
-      background: #f5f5f5;
-      margin:20px -20px;
-      padding: 0 20px;
-      border-top: 1px solid #eee;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-      color: #777;
     }
   }
 

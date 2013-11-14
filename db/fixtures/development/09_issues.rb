@@ -11,17 +11,28 @@ Gitlab::Seeder.quiet do
     next unless user
 
     user_id = user.id
-    IssueObserver.current_user = user
 
-    Issue.seed(:id, [{
-      id: i,
-      project_id: project.id,
-      author_id: user_id,
-      assignee_id: user_id,
-      state: ['opened', 'closed'].sample,
-      milestone: project.milestones.sample,
-      title: Faker::Lorem.sentence(6)
-    }])
+    begin
+      Thread.current[:current_user] = user
+
+      Issue.seed(:id, [{
+        id: i,
+        project_id: project.id,
+        author_id: user_id,
+        assignee_id: user_id,
+        state: ['opened', 'closed'].sample,
+        milestone: project.milestones.sample,
+        title: Faker::Lorem.sentence(6),
+        description: Faker::Lorem.sentence
+      }])
+    ensure
+      Thread.current[:current_user] = nil
+    end
     print('.')
+  end
+
+  Issue.all.map do |issue|
+    issue.set_iid
+    issue.save
   end
 end

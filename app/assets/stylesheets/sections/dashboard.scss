@@ -7,28 +7,10 @@
     @extend .pull-right;
 
     .ui-box {
-      margin: 3px;
-      > .title {
-        padding: 2px 15px;
-      }
+      margin: 0px;
+      box-shadow: none;
+
       .nav-projects-tabs li { padding: 0; }
-      .well-list {
-        li { padding: 15px; }
-        .arrow {
-          float: right;
-          padding: 10px;
-          margin: 0;
-        }
-        .last_activity {
-          padding-top: 5px;
-          display: block;
-          span, strong {
-            font-size: 12px;
-            color: #666;
-          }
-        }
-      }
-      @extend .ui-box;
     }
   }
 }
@@ -46,3 +28,75 @@
   }
 }
 
+.dashboard {
+  .dash-filter {
+    margin: 7px 0;
+    padding: 4px 6px;
+    width: 202px;
+    float: left;
+  }
+}
+
+@media (max-width: 1200px) {
+  .dashboard .dash-filter {
+    width: 132px;
+  }
+}
+
+.dash-sidebar-tabs {
+  margin-bottom: 2px;
+  border: none;
+  margin: 0;
+
+  li {
+    &.active {
+      a {
+        background-color: #EEE;
+        border-bottom: 1px solid #EEE !important;
+        &:hover {
+          background: #eee;
+        }
+      }
+    }
+
+    a {
+      border-color: #DDD !important;
+    }
+  }
+}
+
+.project-row, .group-row {
+  padding: 10px 15px !important;
+
+  .namespace-name {
+    color: #666;
+    font-weight: bold;
+  }
+
+  .project-name, .group-name {
+    font-size: 15px;
+  }
+
+  .arrow {
+    float: right;
+    padding: 10px 5px;
+    margin: 0;
+    font-size: 20px;
+    color: #666;
+  }
+
+  .last-activity {
+    color: #AAA;
+    display: block;
+    margin-top: 5px;
+    .date {
+      color: #777;
+    }
+  }
+}
+
+.group-row {
+  .arrow {
+    padding: 2px 5px;
+  }
+}

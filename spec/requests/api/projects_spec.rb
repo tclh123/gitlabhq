@@ -1,16 +1,17 @@
 require 'spec_helper'
 
-describe Gitlab::API do
+describe API::API do
   include ApiHelpers
   before(:each) { enable_observers }
+  after(:each) { disable_observers }
 
   let(:user) { create(:user) }
   let(:user2) { create(:user) }
   let(:user3) { create(:user) }
   let(:admin) { create(:admin) }
-  let!(:project) { create(:project_with_code, creator_id: user.id) }
+  let!(:project) { create(:project_with_code, creator_id: user.id, namespace: user.namespace) }
   let!(:hook) { create(:project_hook, project: project, url: "http://example.com") }
-  let!(:snippet) { create(:snippet, author: user, project: project, title: 'example') }
+  let!(:snippet) { create(:project_snippet, author: user, project: project, title: 'example') }
   let!(:users_project) { create(:users_project, user: user, project: project, project_access: UsersProject::MASTER) }
   let!(:users_project2) { create(:users_project, user: user3, project: project, project_access: UsersProject::DEVELOPER) }
 
@@ -90,7 +91,6 @@ describe Gitlab::API do
     it "should assign attributes to project" do
       project = attributes_for(:project, {
         description: Faker::Lorem.sentence,
-        default_branch: 'stable',
         issues_enabled: false,
         wall_enabled: false,
         merge_requests_enabled: false,
@@ -103,6 +103,18 @@ describe Gitlab::API do
         next if k == :path
         json_response[k.to_s].should == v
       end
+    end
+
+    it "should set a project as public" do
+      project = attributes_for(:project, { public: true })
+      post api("/projects", user), project
+      json_response['public'].should be_true
+    end
+
+    it "should set a project as private" do
+      project = attributes_for(:project, { public: false })
+      post api("/projects", user), project
+      json_response['public'].should be_false
     end
   end
 
@@ -130,7 +142,6 @@ describe Gitlab::API do
     it "should assign attributes to project" do
       project = attributes_for(:project, {
         description: Faker::Lorem.sentence,
-        default_branch: 'stable',
         issues_enabled: false,
         wall_enabled: false,
         merge_requests_enabled: false,
@@ -144,6 +155,21 @@ describe Gitlab::API do
         json_response[k.to_s].should == v
       end
     end
+
+    it "should set a project as public" do
+      project = attributes_for(:project, { public: true })
+      post api("/projects/user/#{user.id}", admin), project
+      json_response['public'].should be_true
+
+    end
+
+    it "should set a project as private" do
+      project = attributes_for(:project, { public: false })
+      post api("/projects/user/#{user.id}", admin), project
+      json_response['public'].should be_false
+
+    end
+
   end
 
   describe "GET /projects/:id" do
@@ -173,72 +199,26 @@ describe Gitlab::API do
     end
   end
 
-  describe "GET /projects/:id/repository/branches" do
-    it "should return an array of project branches" do
-      get api("/projects/#{project.id}/repository/branches", user)
+  describe "GET /projects/:id/events" do
+    it "should return a project events" do
+      get api("/projects/#{project.id}/events", user)
       response.status.should == 200
-      json_response.should be_an Array
-      json_response.first['name'].should == project.repo.heads.sort_by(&:name).first.name
-    end
-  end
+      json_event = json_response.first
 
-  describe "GET /projects/:id/repository/branches/:branch" do
-    it "should return the branch information for a single branch" do
-      get api("/projects/#{project.id}/repository/branches/new_design", user)
-      response.status.should == 200
-
-      json_response['name'].should == 'new_design'
-      json_response['commit']['id'].should == '621491c677087aa243f165eab467bfdfbee00be1'
-      json_response['protected'].should == false
+      json_event['action_name'].should == 'joined'
+      json_event['project_id'].to_i.should == project.id
     end
 
-    it "should return a 404 error if branch is not available" do
-      get api("/projects/#{project.id}/repository/branches/unknown", user)
+    it "should return a 404 error if not found" do
+      get api("/projects/42/events", user)
       response.status.should == 404
-    end
-  end
-
-  describe "PUT /projects/:id/repository/branches/:branch/protect" do
-    it "should protect a single branch" do
-      put api("/projects/#{project.id}/repository/branches/new_design/protect", user)
-      response.status.should == 200
-
-      json_response['name'].should == 'new_design'
-      json_response['commit']['id'].should == '621491c677087aa243f165eab467bfdfbee00be1'
-      json_response['protected'].should == true
+      json_response['message'].should == '404 Not Found'
     end
 
-    it "should return a 404 error if branch not found" do
-      put api("/projects/#{project.id}/repository/branches/unknown/protect", user)
+    it "should return a 404 error if user is not a member" do
+      other_user = create(:user)
+      get api("/projects/#{project.id}/events", other_user)
       response.status.should == 404
-    end
-
-    it "should return success when protect branch again" do
-      put api("/projects/#{project.id}/repository/branches/new_design/protect", user)
-      put api("/projects/#{project.id}/repository/branches/new_design/protect", user)
-      response.status.should == 200
-    end
-  end
-
-  describe "PUT /projects/:id/repository/branches/:branch/unprotect" do
-    it "should unprotect a single branch" do
-      put api("/projects/#{project.id}/repository/branches/new_design/unprotect", user)
-      response.status.should == 200
-
-      json_response['name'].should == 'new_design'
-      json_response['commit']['id'].should == '621491c677087aa243f165eab467bfdfbee00be1'
-      json_response['protected'].should == false
-    end
-
-    it "should return success when unprotect branch" do
-      put api("/projects/#{project.id}/repository/branches/unknown/unprotect", user)
-      response.status.should == 404
-    end
-
-    it "should return success when unprotect branch again" do
-      put api("/projects/#{project.id}/repository/branches/new_design/unprotect", user)
-      put api("/projects/#{project.id}/repository/branches/new_design/unprotect", user)
-      response.status.should == 200
     end
   end
 
@@ -485,39 +465,9 @@ describe Gitlab::API do
       response.status.should == 200
     end
 
-    it "should return a 400 error if hook id not given" do
+    it "should return a 405 error if hook id not given" do
       delete api("/projects/#{project.id}/hooks", user)
-      response.status.should == 400
-    end
-  end
-
-  describe "GET /projects/:id/repository/tags" do
-    it "should return an array of project tags" do
-      get api("/projects/#{project.id}/repository/tags", user)
-      response.status.should == 200
-      json_response.should be_an Array
-      json_response.first['name'].should == project.repo.tags.sort_by(&:name).reverse.first.name
-    end
-  end
-
-  describe "GET /projects/:id/repository/commits" do
-    context "authorized user" do
-      before { project.team << [user2, :reporter] }
-
-      it "should return project commits" do
-        get api("/projects/#{project.id}/repository/commits", user)
-        response.status.should == 200
-
-        json_response.should be_an Array
-        json_response.first['id'].should == project.repository.commit.id
-      end
-    end
-
-    context "unauthorized user" do
-      it "should not return project commits" do
-        get api("/projects/#{project.id}/repository/commits")
-        response.status.should == 401
-      end
+      response.status.should == 405
     end
   end
 
@@ -613,28 +563,6 @@ describe Gitlab::API do
     end
   end
 
-  describe "GET /projects/:id/repository/commits/:sha/blob" do
-    it "should get the raw file contents" do
-      get api("/projects/#{project.id}/repository/commits/master/blob?filepath=README.md", user)
-      response.status.should == 200
-    end
-
-    it "should return 404 for invalid branch_name" do
-      get api("/projects/#{project.id}/repository/commits/invalid_branch_name/blob?filepath=README.md", user)
-      response.status.should == 404
-    end
-
-    it "should return 404 for invalid file" do
-      get api("/projects/#{project.id}/repository/commits/master/blob?filepath=README.invalid", user)
-      response.status.should == 404
-    end
-
-    it "should return a 400 error if filepath is missing" do
-      get api("/projects/#{project.id}/repository/commits/master/blob", user)
-      response.status.should == 400
-    end
-  end
-
   describe :deploy_keys do
     let(:deploy_keys_project) { create(:deploy_keys_project, project: project) }
     let(:deploy_key) { deploy_keys_project.deploy_key }
@@ -688,6 +616,149 @@ describe Gitlab::API do
 
       it "should return 404 Not Found with invalid ID" do
         delete api("/projects/#{project.id}/keys/404", user)
+        response.status.should == 404
+      end
+    end
+  end
+
+  describe :fork_admin do
+    let(:project_fork_target) { create(:project) }
+    let(:project_fork_source) { create(:project, public: true) }
+
+    describe "POST /projects/:id/fork/:forked_from_id" do
+      let(:new_project_fork_source) { create(:project, public: true) }
+
+      it "shouldn't available for non admin users" do
+        post api("/projects/#{project_fork_target.id}/fork/#{project_fork_source.id}", user)
+        response.status.should == 403
+      end
+
+      it "should allow project to be forked from an existing project" do
+        project_fork_target.forked?.should_not be_true
+        post api("/projects/#{project_fork_target.id}/fork/#{project_fork_source.id}", admin)
+        response.status.should == 201
+        project_fork_target.reload
+        project_fork_target.forked_from_project.id.should == project_fork_source.id
+        project_fork_target.forked_project_link.should_not be_nil
+        project_fork_target.forked?.should be_true
+      end
+
+      it "should fail if forked_from project which does not exist" do
+        post api("/projects/#{project_fork_target.id}/fork/9999", admin)
+        response.status.should == 404
+      end
+
+      it "should fail with 409 if already forked" do
+        post api("/projects/#{project_fork_target.id}/fork/#{project_fork_source.id}", admin)
+        project_fork_target.reload
+        project_fork_target.forked_from_project.id.should == project_fork_source.id
+        post api("/projects/#{project_fork_target.id}/fork/#{new_project_fork_source.id}", admin)
+        response.status.should == 409
+        project_fork_target.reload
+        project_fork_target.forked_from_project.id.should == project_fork_source.id
+        project_fork_target.forked?.should be_true
+      end
+    end
+
+    describe "DELETE /projects/:id/fork" do
+
+      it "shouldn't available for non admin users" do
+        delete api("/projects/#{project_fork_target.id}/fork", user)
+        response.status.should == 403
+      end
+
+      it "should make forked project unforked" do
+        post api("/projects/#{project_fork_target.id}/fork/#{project_fork_source.id}", admin)
+        project_fork_target.reload
+        project_fork_target.forked_from_project.should_not be_nil
+        project_fork_target.forked?.should be_true
+        delete api("/projects/#{project_fork_target.id}/fork", admin)
+        response.status.should == 200
+        project_fork_target.reload
+        project_fork_target.forked_from_project.should be_nil
+        project_fork_target.forked?.should_not be_true
+      end
+
+      it "should be idempotent if not forked" do
+        project_fork_target.forked_from_project.should be_nil
+        delete api("/projects/#{project_fork_target.id}/fork", admin)
+        response.status.should == 200
+        project_fork_target.reload.forked_from_project.should be_nil
+      end
+    end
+  end
+
+  describe "GET /projects/search/:query" do
+    let!(:query) { 'query'}
+    let!(:search) { create(:project, name: query, creator_id: user.id, namespace: user.namespace) }
+    let!(:pre) { create(:project, name: "pre_#{query}", creator_id: user.id, namespace: user.namespace) }
+    let!(:post) { create(:project, name: "#{query}_post", creator_id: user.id, namespace: user.namespace) }
+    let!(:pre_post) { create(:project, name: "pre_#{query}_post", creator_id: user.id, namespace: user.namespace) }
+    let!(:unfound) { create(:project, name: 'unfound', creator_id: user.id, namespace: user.namespace) }
+    let!(:public) { create(:project, name: "another #{query}",public: true) }
+    let!(:unfound_public) { create(:project, name: 'unfound public', public: true) }
+
+    context "when unauthenticated" do
+      it "should return authentication error" do
+        get api("/projects/search/#{query}")
+        response.status.should == 401
+      end
+    end
+
+    context "when authenticated" do
+      it "should return an array of projects" do
+        get api("/projects/search/#{query}",user)
+        response.status.should == 200
+        json_response.should be_an Array
+        json_response.size.should == 5
+        json_response.each {|project| project['name'].should =~ /.*query.*/}
+      end
+    end
+
+    context "when authenticated as a different user" do
+      it "should return matching public projects" do
+        get api("/projects/search/#{query}", user2)
+        response.status.should == 200
+        json_response.should be_an Array
+        json_response.size.should == 1
+        json_response.first['name'].should == "another #{query}"
+      end
+    end
+  end
+
+  describe "DELETE /projects/:id" do
+    context "when authenticated as user" do
+      it "should remove project" do
+        delete api("/projects/#{project.id}", user)
+        response.status.should == 200
+      end
+
+      it "should not remove a project if not an owner" do
+        user3 = create(:user)
+        project.team << [user3, :developer]
+        delete api("/projects/#{project.id}", user3)
+        response.status.should == 403
+      end
+
+      it "should not remove a non existing project" do
+        delete api("/projects/1328", user)
+        response.status.should == 404
+      end
+
+      it "should not remove a project not attached to user" do
+        delete api("/projects/#{project.id}", user2)
+        response.status.should == 404
+      end
+    end
+
+    context "when authenticated as admin" do
+      it "should remove any existing project" do
+        delete api("/projects/#{project.id}", admin)
+        response.status.should == 200
+      end
+
+      it "should not remove a non existing project" do
+        delete api("/projects/1328", admin)
         response.status.should == 404
       end
     end

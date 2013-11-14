@@ -14,17 +14,25 @@ class Admin
 
     $('.log-bottom').click (e) ->
       e.preventDefault()
-      visible_log = $(".file_content:visible")
+      visible_log = $(".file-content:visible")
       visible_log.animate({ scrollTop: visible_log.find('ol').height() }, "fast")
 
     modal = $('.change-owner-holder')
 
-    $('.change-owner-link').bind "click", ->
+    $('.change-owner-link').bind "click", (e) ->
+      e.preventDefault()
       $(this).hide()
       modal.show()
-    
-    $('.change-owner-cancel-link').bind "click",  ->
+
+    $('.change-owner-cancel-link').bind "click", (e) ->
+      e.preventDefault()
       modal.hide()
       $('.change-owner-link').show()
+
+    $('li.users_project').bind 'ajax:success', ->
+      Turbolinks.visit(location.href)
+
+    $('li.users_group').bind 'ajax:success', ->
+      Turbolinks.visit(location.href)
 
 @Admin = Admin

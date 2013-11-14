@@ -1,3 +1,5 @@
+include ActionDispatch::TestProcess
+
 FactoryGirl.define do
   sequence :sentence, aliases: [:title, :content] do
     Faker::Lorem.sentence
@@ -15,6 +17,8 @@ FactoryGirl.define do
     sequence(:username) { |n| "#{Faker::Internet.user_name}#{n}" }
     password "123456"
     password_confirmation { password }
+    confirmed_at { Time.now }
+    confirmation_token { nil }
 
     trait :admin do
       admin true
@@ -26,8 +30,20 @@ FactoryGirl.define do
   factory :project do
     sequence(:name) { |n| "project#{n}" }
     path { name.downcase.gsub(/\s/, '_') }
+    namespace
     creator
+
+    trait :source do
+      sequence(:name) { |n| "source project#{n}" }
+    end
+    trait :target do
+      sequence(:name) { |n| "target project#{n}" }
+    end
+
+    factory :source_project, traits: [:source]
+    factory :target_project, traits: [:target]
   end
+
 
   factory :redmine_project, parent: :project do
     issues_tracker { "redmine" }
@@ -36,12 +52,28 @@ FactoryGirl.define do
 
   factory :project_with_code, parent: :project do
     path { 'gitlabhq' }
+
+    trait :source_path do
+      path { 'source_gitlabhq' }
+    end
+
+    trait :target_path do
+      path { 'target_gitlabhq' }
+    end
+
+    factory :source_project_with_code, traits: [:source, :source_path]
+    factory :target_project_with_code, traits: [:target, :target_path]
+
+    after :create do |project|
+      TestEnv.clear_repo_dir(project.namespace, project.path)
+      TestEnv.reset_satellite_dir
+      TestEnv.create_repo(project.namespace, project.path)
+    end
   end
 
   factory :group do
     sequence(:name) { |n| "group#{n}" }
     path { name.downcase.gsub(/\s/, '_') }
-    owner
     type 'Group'
   end
 
@@ -77,7 +109,8 @@ FactoryGirl.define do
   factory :merge_request do
     title
     author
-    project factory: :project_with_code
+    source_project factory: :source_project_with_code
+    target_project factory: :target_project_with_code
     source_branch "master"
     target_branch "stable"
 
@@ -87,13 +120,13 @@ FactoryGirl.define do
       source_branch "stable" # pretend bcf03b5d
       st_commits do
         [
-          project.repository.commit('bcf03b5d').to_hash,
-          project.repository.commit('bcf03b5d~1').to_hash,
-          project.repository.commit('bcf03b5d~2').to_hash
+          source_project.repository.commit('bcf03b5d').to_hash,
+          source_project.repository.commit('bcf03b5d~1').to_hash,
+          source_project.repository.commit('bcf03b5d~2').to_hash
         ]
       end
       st_diffs do
-        project.repo.diff("bcf03b5d~3", "bcf03b5d")
+        source_project.repo.diff("bcf03b5d~3", "bcf03b5d")
       end
     end
 
@@ -120,10 +153,11 @@ FactoryGirl.define do
     factory :note_on_issue, traits: [:on_issue], aliases: [:votable_note]
     factory :note_on_merge_request, traits: [:on_merge_request]
     factory :note_on_merge_request_diff, traits: [:on_merge_request, :on_diff]
+    factory :note_on_merge_request_with_attachment, traits: [:on_merge_request, :with_attachment]
 
     trait :on_commit do
       project factory: :project_with_code
-      commit_id     "bcf03b5de6c33f3869ef70d68cf06e679d1d7f9a"
+      commit_id "bcf03b5de6c33f3869ef70d68cf06e679d1d7f9a"
       noteable_type "Commit"
     end
 
@@ -133,13 +167,17 @@ FactoryGirl.define do
 
     trait :on_merge_request do
       project factory: :project_with_code
-      noteable_id   1
+      noteable_id 1
       noteable_type "MergeRequest"
     end
 
     trait :on_issue do
-      noteable_id   1
+      noteable_id 1
       noteable_type "Issue"
+    end
+
+    trait :with_attachment do
+      attachment { fixture_file_upload(Rails.root + "spec/fixtures/dk.png", "image/png") }
     end
   end
 
@@ -197,8 +235,22 @@ FactoryGirl.define do
     url
   end
 
-  factory :snippet do
+  factory :project_snippet do
     project
+    author
+    title
+    content
+    file_name
+  end
+
+  factory :personal_snippet do
+    author
+    title
+    content
+    file_name
+  end
+
+  factory :snippet do
     author
     title
     content
